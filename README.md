@@ -1,0 +1,69 @@
+# Instagram Friendship Graph
+
+Explore your **observed reciprocal Instagram follows** as an Obsidian graph and a movable Canvas with first, second, and third degree circles. The code and fictional example are safe for a public repository. Your Instagram export, observations, and generated vault stay in `local-data/`, which Git ignores.
+
+## Try it now
+
+Requires Python 3.10+ and [Obsidian](https://obsidian.md/). No Python packages or Instagram login are needed.
+
+```bash
+python3 -m friendship_graph demo
+```
+
+In Obsidian, choose **Open folder as vault** and select `local-data/demo-vault`. Open `Friendship Rings.canvas` for movable, colored rings. Open `Home.md`, then use **Open local graph** and set depth to **3** for Obsidian's force-directed graph. The Canvas's circles are fixed on generation; you can drag cards in Obsidian, but regenerating the vault resets generated Canvas positions.
+
+The demo has `you` at the center, Alex and Bea at degree 1, Casey at degree 2, and Drew at degree 3. Its usernames are fictional examples.
+
+## Build your own
+
+1. In Instagram, find **Accounts Center → Your information and permissions → Download your information**. Request your Instagram **followers and following** for **all time**, in **JSON** format. Meta places this feature in Accounts Center; labels may vary by account or app version. Keep the ZIP on your own machine.
+2. Put the ZIP in `local-data/`, for example `local-data/instagram-export.zip`.
+3. Run this command with your Instagram handle:
+
+```bash
+python3 -m friendship_graph build --account YOUR_HANDLE --export local-data/instagram-export.zip
+```
+
+The result is `local-data/vault/`. Open that folder in Obsidian. The importer reads only `followers*.json` and `following.json` in the export's `followers_and_following/` folder. It accepts the original ZIP or an extracted export directory. It does not upload anything or contact Instagram.
+
+Your export tells us which accounts **you** follow and which follow **you**. Their intersection gives degree 1. It does **not** reveal who your friends follow, so it cannot establish degrees 2 and 3 on its own.
+
+## Add second and third degree
+
+Have friends voluntarily share their own follower/following export, or collect only lists you can legitimately see. Ask Grokbot to prepare `local-data/observations.json` using [the handoff](GROKBOT_HANDOFF.md). Each complete snapshot has this shape:
+
+```json
+[
+  {
+    "account": "alex",
+    "followers": ["you", "bea", "casey"],
+    "following": ["you", "bea", "casey"]
+  }
+]
+```
+
+Each list must describe the named account. Use empty arrays only when a list was fully observed and genuinely empty. Omit an account when a list could not be obtained. Then rebuild:
+
+```bash
+python3 -m friendship_graph build \
+  --account YOUR_HANDLE \
+  --export local-data/instagram-export.zip \
+  --observations local-data/observations.json
+```
+
+An edge exists only when **both follow directions are observed**. Degree means the shortest path of reciprocal follow edges from you. It is a social network hop count, not a claim about real-life friendship or closeness. Unknown or incomplete lists do not prove that an edge is absent. The graph includes only nodes within three observed hops.
+
+Generated person notes have `degree-1`, `degree-2`, or `degree-3` tags, which you can use for graph groups and searches. The `People/` notes, `Home.md`, and Canvas are generated files and may be replaced on rebuild; keep personal annotations in separate notes in the same vault. The generator refuses to overwrite a note that it did not create.
+
+## Privacy
+
+- Keep `local-data/` private. It includes other people's handles, even when the names are publicly visible on Instagram.
+- Do not paste credentials, cookies, session files, or raw exports into GitHub issues, commits, or Grokbot prompts.
+- Before publishing any change, run `git status --short` and inspect staged files with `git diff --cached --name-only`.
+- If you choose a custom `--output` path, keep it outside tracked files. The default location is already ignored.
+
+## How it works
+
+The importer takes follower and following snapshots and records directed follow facts. A reciprocal pair becomes one undirected friendship edge. Breadth-first search assigns degrees 0–3 from your account. It writes linked Markdown notes for Obsidian's graph and a standards-based `.canvas` file with deterministic positions and colors. Rebuilding from updated data updates the view.
+
+Sources: [Meta on Download Your Information in Accounts Center](https://about.fb.com/news/2023/10/manage-your-information-across-apps/), [Obsidian Graph view](https://obsidian.md/help/plugins/graph), [Obsidian Canvas](https://obsidian.md/help/plugins/canvas), [JSON Canvas specification](https://jsoncanvas.org/spec/1.0/).

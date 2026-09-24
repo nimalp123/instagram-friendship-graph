@@ -1,0 +1,15 @@
+[project]
+name = "instagram-friendship-graph"
+version = "0.1.0"
+description = "Turn consented Instagram connection data into a private Obsidian friendship graph"
+requires-python = ">=3.10"
+
+[project.scripts]
+friendship-graph = "friendship_graph.cli:main"
+
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["friendship_graph*"]

@@ -1,0 +1,6 @@
+[
+  {"account": "alex", "followers": ["you", "bea", "casey"], "following": ["you", "bea", "casey"]},
+  {"account": "bea", "followers": ["you", "alex"], "following": ["you", "alex"]},
+  {"account": "casey", "followers": ["alex", "drew"], "following": ["alex", "drew"]},
+  {"account": "drew", "followers": ["casey"], "following": ["casey"]}
+]
