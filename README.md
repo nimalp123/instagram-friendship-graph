@@ -18,7 +18,13 @@ Turn reciprocal Instagram follows into an Obsidian vault you can zoom, drag, and
 
 ![A path from your account through first, second, and third degree friends](assets/connection-path.svg)
 
-The public repo contains the generator and a fictional demo. Your Instagram export, observations, and generated vault stay in ignored `local-data/`.
+## My graph, September 2026
+
+![The full observed friendship graph with 5,347 anonymous accounts and 5,992 mutual-follow links](assets/actual-graph.png)
+
+*Every node and edge currently in my Obsidian vault, with usernames hidden. The layout is arranged for this image. Second and third degree totals are observed lower bounds because some Instagram lists are incomplete.* [Open the full-size image](assets/actual-graph.png).
+
+The public repo contains the generator, a fictional demo, and these label-free images. Your Instagram export, observations, and generated vault stay in ignored `local-data/`.
 
 ## Try the demo
 
