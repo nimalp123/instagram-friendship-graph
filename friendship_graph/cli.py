@@ -255,27 +255,49 @@ def build(root: str, followers: set[str], following: set[str], observations: lis
     return {d: sum(value == d for value in degree.values()) for d in range(4)}
 
 
-def prepare_second_degree(root: str, export: Path, observation_paths: list[Path], targets_file: Path | None, count: int, output: Path) -> list[str]:
-    if not 1 <= count <= 20:
-        raise InputError("--count must be between 1 and 20")
-    followers, following = load_export(export)
-    mutuals = followers & following
-    observations = [row for path in observation_paths for row in load_observations(path, root)]
+def _read_name_file(path: Path) -> list[str]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError as exc:
+        raise InputError(f"Cannot read account file {path}: {exc}") from exc
+    names = [username(line.strip().removeprefix("@")) for line in lines if line.strip() and not line.lstrip().startswith("#")]
+    if len(names) != len(set(names)):
+        raise InputError(f"Account file contains duplicates: {path}")
+    return names
+
+
+def _validated_snapshots(root: str, followers: set[str], following: set[str], paths: list[Path]) -> list[tuple[str, set[str], set[str]]]:
+    observations = [row for path in paths for row in load_observations(path, root)]
     if len(observations) != len({account for account, _, _ in observations}):
         raise InputError("The observations files contain a duplicate account")
     for account, observed_followers, observed_following in observations:
         if account == root and (observed_followers != followers or observed_following != following):
             raise InputError("Your observation differs from the Meta export; resolve that conflict before preparing a batch")
+    return observations
+
+
+def _write_private_task(output: Path, content: str) -> None:
+    repo = Path.cwd().resolve()
+    if (repo / ".git").exists() and output.resolve().is_relative_to(repo) and not output.resolve().is_relative_to(repo / "local-data"):
+        raise InputError("Private task output inside this repo must be under local-data/")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        _write_generated(output, content)
+    else:
+        output.write_text(content, encoding="utf-8")
+
+
+def prepare_second_degree(root: str, export: Path, observation_paths: list[Path], targets_file: Path | None, count: int, output: Path, exclude_file: Path | None = None) -> list[str]:
+    if not 1 <= count <= 20:
+        raise InputError("--count must be between 1 and 20")
+    followers, following = load_export(export)
+    mutuals = followers & following
+    observations = _validated_snapshots(root, followers, following, observation_paths)
     observed = {account for account, _, _ in observations}
-    eligible = mutuals - observed - {root}
+    excluded = set(_read_name_file(exclude_file)) if exclude_file else set()
+    eligible = mutuals - observed - excluded - {root}
     if targets_file:
-        try:
-            lines = targets_file.read_text(encoding="utf-8").splitlines()
-        except OSError as exc:
-            raise InputError(f"Cannot read targets file {targets_file}: {exc}") from exc
-        targets = [username(line.strip().removeprefix("@")) for line in lines if line.strip() and not line.lstrip().startswith("#")]
-        if len(targets) != len(set(targets)):
-            raise InputError("Targets file contains duplicate accounts")
+        targets = _read_name_file(targets_file)
         if len(targets) > count:
             raise InputError(f"Targets file has more than --count={count} accounts")
         if any(account not in eligible for account in targets):
@@ -288,27 +310,66 @@ def prepare_second_degree(root: str, export: Path, observation_paths: list[Path]
     if not targets:
         raise InputError("No eligible reciprocal follows remain for this batch")
     target_lines = "\n".join(f"- @{account}" for account in targets)
+    result_name = output.with_suffix(".json").name
     content = (
         f"{MARKER}\n# Second-degree collection batch\n\n"
         f"Selection: {method}.\n\n## Accounts to inspect\n\n{target_lines}\n\n"
         "## Task for the logged-in Grokbot\n\n"
-        "For each account above, collect its **complete** follower and following username lists only if both are visible "
-        "to my logged-in account or shared by that account owner. Do not bypass access controls. If either list is hidden, "
-        "truncated, or uncertain, omit that account and report why. Do not infer a missing follow.\n\n"
-        "Return a private UTF-8 file named `second-degree-observations.json`: a JSON array of objects with exactly "
+        "For each account above, collect usernames actually observed in its follower and following lists only if both "
+        "are visible to my logged-in account or shared by that account owner. Do not bypass access controls. If a list "
+        "is hidden, omit that account. If scrolling stops early, keep only observed names and separately report badge and "
+        "captured counts, whether the list end was reached, and why you stopped. Do not infer a missing follow.\n\n"
+        f"Return a new private UTF-8 file named `{result_name}`: a JSON array of objects with exactly "
         "`account`, `followers`, and `following` string-array fields. Use usernames without @, deduplicate each list, "
         "and do not include the owner account, passwords, cookies, DMs, or profile details. Do not upload this file to GitHub.\n\n"
-        "Put the result in the ignored `local-data/` folder. Then rebuild with your export, the earlier observations file, "
-        "and the new file by passing `--observations` once for each file.\n"
+        "Put the result in the ignored `local-data/` folder. Preserve all earlier observation files. Then rebuild with "
+        "your export and the new file by passing `--observations` once for each current batch.\n"
     )
-    repo = Path.cwd().resolve()
-    if (repo / ".git").exists() and output.resolve().is_relative_to(repo) and not output.resolve().is_relative_to(repo / "local-data"):
-        raise InputError("Private task output inside this repo must be under local-data/")
-    output.parent.mkdir(parents=True, exist_ok=True)
-    if output.exists():
-        _write_generated(output, content)
-    else:
-        output.write_text(content, encoding="utf-8")
+    _write_private_task(output, content)
+    return targets
+
+
+def prepare_third_degree(root: str, export: Path, observation_paths: list[Path], exclude_file: Path | None, count: int, output: Path) -> list[str]:
+    if not 1 <= count <= 20:
+        raise InputError("--count must be between 1 and 20")
+    followers, following = load_export(export)
+    observations = _validated_snapshots(root, followers, following, observation_paths)
+    follows: set[tuple[str, str]] = set()
+    add_snapshot(follows, root, followers, following)
+    for account, seen_followers, seen_following in observations:
+        add_snapshot(follows, account, seen_followers, seen_following)
+    graph = mutual_graph(follows)
+    degree = distances(graph, root)
+    observed = {account for account, _, _ in observations}
+    excluded = set(_read_name_file(exclude_file)) if exclude_file else set()
+    eligible = [account for account, value in degree.items() if value == 2 and account not in observed and account not in excluded]
+    def first_degree_links(account: str) -> int:
+        return sum(degree.get(neighbor) == 1 for neighbor in graph.get(account, ()))
+    targets = sorted(eligible, key=lambda account: (-first_degree_links(account), account))[:count]
+    if not targets:
+        raise InputError("No eligible second-degree accounts remain for this batch")
+    target_lines = "\n".join(f"- @{account} ({first_degree_links(account)} observed first-degree links)" for account in targets)
+    result_name = output.with_suffix(".json").name
+    content = (
+        f"{MARKER}\n# Third-degree collection batch\n\n"
+        "These second-degree accounts have the most observed reciprocal links into the first-degree ring. "
+        "This is a collection order, not a closeness score.\n\n"
+        f"## Accounts to inspect\n\n{target_lines}\n\n"
+        "## Task for the logged-in Grokbot\n\n"
+        "For each account above, record usernames actually observed in both its followers and following lists, only "
+        "if visible to my logged-in account or shared by that account owner. Do not bypass access controls. If a list "
+        "is hidden, omit that account. If a list ends early or appears incomplete, include only observed names and "
+        "separately report its badge count, captured count, whether the scroll endpoint was reached, and why you stopped. "
+        "Do not infer missing follows.\n\n"
+        f"Return a new private UTF-8 file named `{result_name}`: a JSON array of objects with exactly "
+        "`account`, `followers`, and `following`. Use "
+        "usernames without @ and deduplicate each list. Do not include passwords, cookies, DMs, or profile details. "
+        "Do not upload the file to GitHub. Put it under the ignored `local-data/` folder without replacing earlier "
+        "snapshots, then rebuild by passing this and each current observations file with a separate `--observations` "
+        "flag. The resulting node counts remain "
+        "observed lower bounds.\n"
+    )
+    _write_private_task(output, content)
     return targets
 
 
@@ -325,14 +386,27 @@ def main(argv: list[str] | None = None) -> int:
     prepare_parser.add_argument("--export", type=Path, required=True, help="Meta export ZIP or extracted directory")
     prepare_parser.add_argument("--observations", type=Path, action="append", default=[], help="Existing snapshots JSON; repeat if needed")
     prepare_parser.add_argument("--targets-file", type=Path, help="Optional file with one chosen mutual account per line")
+    prepare_parser.add_argument("--exclude-file", type=Path, help="Optional file with accounts to skip, one per line")
     prepare_parser.add_argument("--count", type=int, default=10)
     prepare_parser.add_argument("--output", type=Path, default=Path("local-data/second-degree-task.md"))
+    third_parser = sub.add_parser("prepare-third-degree", help="Make a private batch from unobserved second-degree accounts")
+    third_parser.add_argument("--account", required=True, help="Your Instagram username")
+    third_parser.add_argument("--export", type=Path, required=True, help="Meta export ZIP or extracted directory")
+    third_parser.add_argument("--observations", type=Path, action="append", required=True, help="Existing snapshots JSON; repeat for every current batch")
+    third_parser.add_argument("--exclude-file", type=Path, help="Optional file with inaccessible accounts, one per line")
+    third_parser.add_argument("--count", type=int, default=10)
+    third_parser.add_argument("--output", type=Path, default=Path("local-data/third-degree-task.md"))
     demo_parser = sub.add_parser("demo", help="Build a fictional three-degree demo")
     demo_parser.add_argument("--output", type=Path, default=Path("local-data/demo-vault"))
     args = parser.parse_args(argv)
     try:
         if args.command == "prepare-second-degree":
-            targets = prepare_second_degree(username(args.account), args.export, args.observations, args.targets_file, args.count, args.output)
+            targets = prepare_second_degree(username(args.account), args.export, args.observations, args.targets_file, args.count, args.output, args.exclude_file)
+            print(f"Private task: {args.output.resolve()}")
+            print(f"Targets: {len(targets)}")
+            return 0
+        if args.command == "prepare-third-degree":
+            targets = prepare_third_degree(username(args.account), args.export, args.observations, args.exclude_file, args.count, args.output)
             print(f"Private task: {args.output.resolve()}")
             print(f"Targets: {len(targets)}")
             return 0

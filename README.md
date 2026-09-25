@@ -41,7 +41,7 @@ python3 -m friendship_graph prepare-second-degree \
 
 It writes `local-data/second-degree-task.md` with up to ten reciprocal accounts that you followed most recently. **Recency is only a collection order, not a friendship score.** To select people yourself, put one mutual account per line in an ignored `local-data/targets.txt` file and add `--targets-file local-data/targets.txt`. The task stays local and private.
 
-Have friends voluntarily share their own follower/following export, or collect only lists you can legitimately see. Ask Grokbot to prepare `local-data/second-degree-observations.json` using the private task and [the handoff](GROKBOT_HANDOFF.md). Each complete snapshot has this shape:
+Have friends voluntarily share their own follower/following export, or collect only lists you can legitimately see. Ask Grokbot to prepare the new batch's JSON file using the private task and [the handoff](GROKBOT_HANDOFF.md). Each observed snapshot has this shape:
 
 ```json
 [
@@ -53,7 +53,7 @@ Have friends voluntarily share their own follower/following export, or collect o
 ]
 ```
 
-Each list must describe the named account. Use empty arrays only when a list was fully observed and genuinely empty. Omit an account when a list could not be obtained. Then rebuild, repeating `--observations` for each batch:
+Each list must describe the named account. Use empty arrays only when a list was fully observed and genuinely empty. Omit an account when a list was hidden. Captured subsets can contribute positive edges, but must be reported as incomplete. Then rebuild, repeating `--observations` for each batch:
 
 ```bash
 python3 -m friendship_graph build \
@@ -66,6 +66,24 @@ python3 -m friendship_graph build \
 An edge exists only when **both follow directions are observed**. Degree means the shortest path of reciprocal follow edges from you. It is a social network hop count, not a claim about real-life friendship or closeness. Unknown or incomplete lists do not prove that an edge is absent. The graph includes only nodes within three observed hops.
 
 Instagram may show fewer usernames in a visible list than its profile badge count. A captured subset can still prove an edge when **both directions appear**, but its missing names cannot disprove one. Treat all degree counts from such snapshots as **observed lower bounds**, and record the collection limitation alongside your private data. Do not use an empty array to mean a list was inaccessible.
+
+### Keep growing the graph
+
+Run `prepare-second-degree` again with **every current observation file** to select unobserved first-degree accounts. Give each batch a new output filename such as `--output local-data/second-degree-batch-2.md`; the task will request a matching `.json` file. Never pass the original and a merged replacement for the same account together, because duplicate snapshots are rejected.
+
+To select unobserved second-degree accounts for a third-degree batch:
+
+```bash
+python3 -m friendship_graph prepare-third-degree \
+  --account YOUR_HANDLE \
+  --export local-data/instagram-export.zip \
+  --observations local-data/observations.json \
+  --observations local-data/second-degree-observations.json \
+  --observations local-data/third-degree-observations.json \
+  --output local-data/third-degree-batch-2.md
+```
+
+Use the latest merged observation file for each account. Add `--exclude-file local-data/inaccessible-accounts.txt` if you have a file with one inaccessible username per line. The third-degree batch favors second-degree accounts with more observed links into your first-degree ring; this is a collection heuristic, not a measure of closeness. Keep all task and data files in ignored `local-data/`.
 
 If `observations.json` also contains your own account, that snapshot is ignored when it exactly matches your Meta export. A mismatch stops the build so the two sources are not silently mixed.
 

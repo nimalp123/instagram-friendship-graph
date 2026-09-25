@@ -4,7 +4,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from friendship_graph.cli import InputError, build, load_export, load_observations, prepare_second_degree
+from friendship_graph.cli import InputError, build, load_export, load_observations, prepare_second_degree, prepare_third_degree
 
 
 def meta_rows(*names):
@@ -89,6 +89,25 @@ class GraphTests(unittest.TestCase):
             targets = base / "targets.txt"
             targets.write_text("@alex\n")
             self.assertEqual(prepare_second_degree("me", archive, [observed], targets, 2, task), ["alex"])
+
+    def test_third_degree_batch_uses_observed_paths_and_skips_inaccessible(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            archive = base / "export.zip"
+            with zipfile.ZipFile(archive, "w") as output:
+                output.writestr("connections/followers_and_following/followers_1.json", json.dumps(meta_rows("alex", "bea")))
+                output.writestr("connections/followers_and_following/following.json", json.dumps({"relationships_following": meta_following_rows("alex", "bea")}))
+            observed = base / "observations.json"
+            observed.write_text(json.dumps([
+                {"account": "alex", "followers": ["me", "casey", "drew"], "following": ["me", "casey", "drew"]},
+                {"account": "bea", "followers": ["me", "drew"], "following": ["me", "drew"]},
+            ]))
+            task = base / "local-data" / "third-degree-batch-2.md"
+            self.assertEqual(prepare_third_degree("me", archive, [observed], None, 2, task), ["drew", "casey"])
+            self.assertIn("third-degree-batch-2.json", task.read_text())
+            excluded = base / "inaccessible.txt"
+            excluded.write_text("@drew\n")
+            self.assertEqual(prepare_third_degree("me", archive, [observed], excluded, 2, task), ["casey"])
 
 
 if __name__ == "__main__":
