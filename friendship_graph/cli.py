@@ -40,7 +40,9 @@ def names_from_meta(value: object, label: str) -> set[str]:
         data = row.get("string_list_data")
         if not isinstance(data, list) or not data or not isinstance(data[0], dict):
             raise InputError(f"{label}: relationship {index} has no string_list_data")
-        names.add(username(data[0].get("value")))
+        # Meta's following.json commonly places the handle in "title" while
+        # followers_1.json places it in string_list_data[0].value.
+        names.add(username(data[0].get("value") or row.get("title")))
     return names
 
 
@@ -98,13 +100,13 @@ def load_observations(path: Path | None, root: str) -> list[tuple[str, set[str],
     if not isinstance(rows, list):
         raise InputError("Observations must be a JSON array")
     result = []
-    seen = {root}
+    seen: set[str] = set()
     for index, row in enumerate(rows):
         if not isinstance(row, dict) or set(row) != {"account", "followers", "following"}:
             raise InputError(f"Observation {index} needs exactly account, followers, following")
         account = username(row["account"])
         if account in seen:
-            raise InputError(f"Duplicate observation or root account: {account}")
+            raise InputError(f"Duplicate observation: {account}")
         seen.add(account)
         followers, following = row["followers"], row["following"]
         if not isinstance(followers, list) or not isinstance(following, list):
@@ -246,6 +248,10 @@ def main(argv: list[str] | None = None) -> int:
             root = username(args.account)
             followers, following = load_export(args.export)
             observations = load_observations(args.observations, root)
+            for account, observed_followers, observed_following in observations:
+                if account == root and (observed_followers != followers or observed_following != following):
+                    raise InputError("Your observation differs from the Meta export; resolve that conflict before building")
+            observations = [row for row in observations if row[0] != root]
         counts = build(root, followers, following, observations, args.output)
     except (InputError, OSError) as exc:
         print(f"error: {exc}", file=sys.stderr)

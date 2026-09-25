@@ -53,6 +53,8 @@ python3 -m friendship_graph build \
 
 An edge exists only when **both follow directions are observed**. Degree means the shortest path of reciprocal follow edges from you. It is a social network hop count, not a claim about real-life friendship or closeness. Unknown or incomplete lists do not prove that an edge is absent. The graph includes only nodes within three observed hops.
 
+If `observations.json` also contains your own account, that snapshot is ignored when it exactly matches your Meta export. A mismatch stops the build so the two sources are not silently mixed.
+
 Generated person notes have `degree-1`, `degree-2`, or `degree-3` tags, which you can use for graph groups and searches. The `People/` notes, `Home.md`, and Canvas are generated files and may be replaced on rebuild; keep personal annotations in separate notes in the same vault. The generator refuses to overwrite a note that it did not create.
 
 ## Privacy

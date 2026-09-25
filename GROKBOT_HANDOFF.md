@@ -13,3 +13,11 @@ Copy the text below to Grokbot. Replace `YOUR_HANDLE` before sending. Do not inc
 > Report the number of accounts included and the accounts omitted because their lists were unavailable or incomplete. Keep all raw data local/private.
 
 Place the files in this repo's ignored `local-data/` folder and run the commands in [README.md](README.md). Start with your own export; that alone gives a useful first-degree graph.
+
+## Next collection task for this graph
+
+If your own export has already been processed and `observations.json` repeats only your account, it adds no second or third degree nodes. For expansion, send Grokbot this follow-up after replacing `YOUR_HANDLE`:
+
+> My own Instagram export is already processed. Please do **not** repeat `YOUR_HANDLE` in `observations.json`. To expand the graph, start with up to 10 of my reciprocal-follow accounts that I name or approve. For each other account, record its **complete** `followers` and **complete** `following` username lists only if both are available to my logged-in account or shared by that account owner. Put one object per account in `observations.json` with exactly `account`, `followers`, and `following`. If a list is hidden, truncated, or uncertain, omit that account and report it. Return the JSON privately. Do not upload it to GitHub.
+
+The generator will use reciprocal follow evidence from those snapshots to place reachable accounts at two or three hops. It cannot infer missing connections from your own export.

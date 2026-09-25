@@ -11,6 +11,10 @@ def meta_rows(*names):
     return [{"string_list_data": [{"value": name, "href": f"https://instagram.com/{name}"}]} for name in names]
 
 
+def meta_following_rows(*names):
+    return [{"title": name, "string_list_data": [{"href": f"https://instagram.com/{name}"}]} for name in names]
+
+
 class GraphTests(unittest.TestCase):
     def test_export_zip_and_three_hops(self):
         with tempfile.TemporaryDirectory() as temporary:
@@ -18,7 +22,7 @@ class GraphTests(unittest.TestCase):
             archive = base / "export.zip"
             with zipfile.ZipFile(archive, "w") as output:
                 output.writestr("instagram/relationships/followers_and_following/followers_1.json", json.dumps(meta_rows("Alex", "bea", "only_follows_me")))
-                output.writestr("instagram/relationships/followers_and_following/following.json", json.dumps({"relationships_following": meta_rows("alex", "bea", "only_i_follow")}))
+                output.writestr("instagram/relationships/followers_and_following/following.json", json.dumps({"relationships_following": meta_following_rows("alex", "bea", "only_i_follow")}))
             followers, following = load_export(archive)
             observations_file = base / "observations.json"
             observations_file.write_text(json.dumps([
@@ -50,6 +54,12 @@ class GraphTests(unittest.TestCase):
             path.write_text(json.dumps([{"account": "alex", "followers": ["me"]}]))
             with self.assertRaises(InputError):
                 load_observations(path, "me")
+
+    def test_root_observation_can_be_loaded_for_export_comparison(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "observations.json"
+            path.write_text(json.dumps([{"account": "me", "followers": ["alex"], "following": ["alex"]}]))
+            self.assertEqual(len(load_observations(path, "me")), 1)
 
     def test_rebuild_removes_stale_generated_notes_and_protects_personal_notes(self):
         with tempfile.TemporaryDirectory() as temporary:
