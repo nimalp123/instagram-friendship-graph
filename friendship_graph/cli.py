@@ -90,6 +90,39 @@ def load_export(path: Path) -> tuple[set[str], set[str]]:
     return followers, following
 
 
+def load_following_timestamps(path: Path) -> dict[str, int]:
+    """Get follow dates solely to choose a manageable collection batch."""
+    raw_files: list[bytes] = []
+    if path.is_dir():
+        for item in path.rglob("following.json"):
+            if (_is_connection_file(item.relative_to(path).as_posix()) or path.name == "followers_and_following") and item.stat().st_size <= MAX_JSON_BYTES:
+                raw_files.append(item.read_bytes())
+    elif path.is_file() and zipfile.is_zipfile(path):
+        with zipfile.ZipFile(path) as archive:
+            for item in archive.infolist():
+                if _is_connection_file(item.filename) and PurePosixPath(item.filename).name == "following.json":
+                    if item.file_size > MAX_JSON_BYTES:
+                        raise InputError(f"Export JSON is too large: {item.filename}")
+                    raw_files.append(archive.read(item))
+    dates: dict[str, int] = {}
+    for raw in raw_files:
+        data = json.loads(raw)
+        rows = data.get("relationships_following") if isinstance(data, dict) else data
+        if not isinstance(rows, list):
+            raise InputError("following.json has no relationship list")
+        for row in rows:
+            if not isinstance(row, dict) or not isinstance(row.get("string_list_data"), list) or not row["string_list_data"]:
+                raise InputError("following.json has an invalid relationship")
+            info = row["string_list_data"][0]
+            if not isinstance(info, dict):
+                raise InputError("following.json has an invalid relationship")
+            name = username(info.get("value") or row.get("title"))
+            stamp = info.get("timestamp")
+            if isinstance(stamp, int) and not isinstance(stamp, bool):
+                dates[name] = max(dates.get(name, 0), stamp)
+    return dates
+
+
 def load_observations(path: Path | None, root: str) -> list[tuple[str, set[str], set[str]]]:
     if path is None:
         return []
@@ -222,18 +255,87 @@ def build(root: str, followers: set[str], following: set[str], observations: lis
     return {d: sum(value == d for value in degree.values()) for d in range(4)}
 
 
+def prepare_second_degree(root: str, export: Path, observation_paths: list[Path], targets_file: Path | None, count: int, output: Path) -> list[str]:
+    if not 1 <= count <= 20:
+        raise InputError("--count must be between 1 and 20")
+    followers, following = load_export(export)
+    mutuals = followers & following
+    observations = [row for path in observation_paths for row in load_observations(path, root)]
+    if len(observations) != len({account for account, _, _ in observations}):
+        raise InputError("The observations files contain a duplicate account")
+    for account, observed_followers, observed_following in observations:
+        if account == root and (observed_followers != followers or observed_following != following):
+            raise InputError("Your observation differs from the Meta export; resolve that conflict before preparing a batch")
+    observed = {account for account, _, _ in observations}
+    eligible = mutuals - observed - {root}
+    if targets_file:
+        try:
+            lines = targets_file.read_text(encoding="utf-8").splitlines()
+        except OSError as exc:
+            raise InputError(f"Cannot read targets file {targets_file}: {exc}") from exc
+        targets = [username(line.strip().removeprefix("@")) for line in lines if line.strip() and not line.lstrip().startswith("#")]
+        if len(targets) != len(set(targets)):
+            raise InputError("Targets file contains duplicate accounts")
+        if len(targets) > count:
+            raise InputError(f"Targets file has more than --count={count} accounts")
+        if any(account not in eligible for account in targets):
+            raise InputError("Every target must be a reciprocal follow not already observed")
+        method = "chosen in the targets file"
+    else:
+        timestamps = load_following_timestamps(export)
+        targets = sorted(eligible, key=lambda account: (-timestamps.get(account, 0), account))[:count]
+        method = "most recently followed among reciprocal accounts; this is not a closeness score"
+    if not targets:
+        raise InputError("No eligible reciprocal follows remain for this batch")
+    target_lines = "\n".join(f"- @{account}" for account in targets)
+    content = (
+        f"{MARKER}\n# Second-degree collection batch\n\n"
+        f"Selection: {method}.\n\n## Accounts to inspect\n\n{target_lines}\n\n"
+        "## Task for the logged-in Grokbot\n\n"
+        "For each account above, collect its **complete** follower and following username lists only if both are visible "
+        "to my logged-in account or shared by that account owner. Do not bypass access controls. If either list is hidden, "
+        "truncated, or uncertain, omit that account and report why. Do not infer a missing follow.\n\n"
+        "Return a private UTF-8 file named `second-degree-observations.json`: a JSON array of objects with exactly "
+        "`account`, `followers`, and `following` string-array fields. Use usernames without @, deduplicate each list, "
+        "and do not include the owner account, passwords, cookies, DMs, or profile details. Do not upload this file to GitHub.\n\n"
+        "Put the result in the ignored `local-data/` folder. Then rebuild with your export, the earlier observations file, "
+        "and the new file by passing `--observations` once for each file.\n"
+    )
+    repo = Path.cwd().resolve()
+    if (repo / ".git").exists() and output.resolve().is_relative_to(repo) and not output.resolve().is_relative_to(repo / "local-data"):
+        raise InputError("Private task output inside this repo must be under local-data/")
+    output.parent.mkdir(parents=True, exist_ok=True)
+    if output.exists():
+        _write_generated(output, content)
+    else:
+        output.write_text(content, encoding="utf-8")
+    return targets
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Build a local Obsidian friendship graph from Instagram data")
     sub = parser.add_subparsers(dest="command", required=True)
     build_parser = sub.add_parser("build", help="Build from your Meta JSON export")
     build_parser.add_argument("--account", required=True, help="Your Instagram username")
     build_parser.add_argument("--export", type=Path, required=True, help="Meta export ZIP or extracted directory")
-    build_parser.add_argument("--observations", type=Path, help="Optional observed account snapshots JSON")
+    build_parser.add_argument("--observations", type=Path, action="append", default=[], help="Observed account snapshots JSON; repeat for later batches")
     build_parser.add_argument("--output", type=Path, default=Path("local-data/vault"))
+    prepare_parser = sub.add_parser("prepare-second-degree", help="Make a private Grokbot collection batch")
+    prepare_parser.add_argument("--account", required=True, help="Your Instagram username")
+    prepare_parser.add_argument("--export", type=Path, required=True, help="Meta export ZIP or extracted directory")
+    prepare_parser.add_argument("--observations", type=Path, action="append", default=[], help="Existing snapshots JSON; repeat if needed")
+    prepare_parser.add_argument("--targets-file", type=Path, help="Optional file with one chosen mutual account per line")
+    prepare_parser.add_argument("--count", type=int, default=10)
+    prepare_parser.add_argument("--output", type=Path, default=Path("local-data/second-degree-task.md"))
     demo_parser = sub.add_parser("demo", help="Build a fictional three-degree demo")
     demo_parser.add_argument("--output", type=Path, default=Path("local-data/demo-vault"))
     args = parser.parse_args(argv)
     try:
+        if args.command == "prepare-second-degree":
+            targets = prepare_second_degree(username(args.account), args.export, args.observations, args.targets_file, args.count, args.output)
+            print(f"Private task: {args.output.resolve()}")
+            print(f"Targets: {len(targets)}")
+            return 0
         if args.command == "demo":
             root = "you"
             followers = {"alex", "bea", "unreturned"}
@@ -247,7 +349,10 @@ def main(argv: list[str] | None = None) -> int:
         else:
             root = username(args.account)
             followers, following = load_export(args.export)
-            observations = load_observations(args.observations, root)
+            observations = [row for path in args.observations for row in load_observations(path, root)]
+            accounts = [account for account, _, _ in observations]
+            if len(accounts) != len(set(accounts)):
+                raise InputError("The observations files contain a duplicate account")
             for account, observed_followers, observed_following in observations:
                 if account == root and (observed_followers != followers or observed_following != following):
                     raise InputError("Your observation differs from the Meta export; resolve that conflict before building")

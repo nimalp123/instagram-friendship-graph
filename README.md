@@ -30,7 +30,18 @@ Your export tells us which accounts **you** follow and which follow **you**. The
 
 ## Add second and third degree
 
-Have friends voluntarily share their own follower/following export, or collect only lists you can legitimately see. Ask Grokbot to prepare `local-data/observations.json` using [the handoff](GROKBOT_HANDOFF.md). Each complete snapshot has this shape:
+Prepare a private collection task for your logged-in Grokbot:
+
+```bash
+python3 -m friendship_graph prepare-second-degree \
+  --account YOUR_HANDLE \
+  --export local-data/instagram-export.zip \
+  --observations local-data/observations.json
+```
+
+It writes `local-data/second-degree-task.md` with up to ten reciprocal accounts that you followed most recently. **Recency is only a collection order, not a friendship score.** To select people yourself, put one mutual account per line in an ignored `local-data/targets.txt` file and add `--targets-file local-data/targets.txt`. The task stays local and private.
+
+Have friends voluntarily share their own follower/following export, or collect only lists you can legitimately see. Ask Grokbot to prepare `local-data/second-degree-observations.json` using the private task and [the handoff](GROKBOT_HANDOFF.md). Each complete snapshot has this shape:
 
 ```json
 [
@@ -42,13 +53,14 @@ Have friends voluntarily share their own follower/following export, or collect o
 ]
 ```
 
-Each list must describe the named account. Use empty arrays only when a list was fully observed and genuinely empty. Omit an account when a list could not be obtained. Then rebuild:
+Each list must describe the named account. Use empty arrays only when a list was fully observed and genuinely empty. Omit an account when a list could not be obtained. Then rebuild, repeating `--observations` for each batch:
 
 ```bash
 python3 -m friendship_graph build \
   --account YOUR_HANDLE \
   --export local-data/instagram-export.zip \
-  --observations local-data/observations.json
+  --observations local-data/observations.json \
+  --observations local-data/second-degree-observations.json
 ```
 
 An edge exists only when **both follow directions are observed**. Degree means the shortest path of reciprocal follow edges from you. It is a social network hop count, not a claim about real-life friendship or closeness. Unknown or incomplete lists do not prove that an edge is absent. The graph includes only nodes within three observed hops.

@@ -18,6 +18,8 @@ Place the files in this repo's ignored `local-data/` folder and run the commands
 
 If your own export has already been processed and `observations.json` repeats only your account, it adds no second or third degree nodes. For expansion, send Grokbot this follow-up after replacing `YOUR_HANDLE`:
 
+You can also run `python3 -m friendship_graph prepare-second-degree --account YOUR_HANDLE --export PATH_TO_EXPORT --observations PATH_TO_EXISTING_OBSERVATIONS` to produce a private `local-data/second-degree-task.md` containing a concrete first batch of accounts.
+
 > My own Instagram export is already processed. Please do **not** repeat `YOUR_HANDLE` in `observations.json`. To expand the graph, start with up to 10 of my reciprocal-follow accounts that I name or approve. For each other account, record its **complete** `followers` and **complete** `following` username lists only if both are available to my logged-in account or shared by that account owner. Put one object per account in `observations.json` with exactly `account`, `followers`, and `following`. If a list is hidden, truncated, or uncertain, omit that account and report it. Return the JSON privately. Do not upload it to GitHub.
 
 The generator will use reciprocal follow evidence from those snapshots to place reachable accounts at two or three hops. It cannot infer missing connections from your own export.

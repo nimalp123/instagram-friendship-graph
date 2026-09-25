@@ -1,5 +1,6 @@
 # Raw exports, observed social data, and generated vaults stay local.
 /local-data/
+/.obsidian/
 *.zip
 __pycache__/
 *.py[cod]

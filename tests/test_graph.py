@@ -4,7 +4,7 @@ import unittest
 import zipfile
 from pathlib import Path
 
-from friendship_graph.cli import InputError, build, load_export, load_observations
+from friendship_graph.cli import InputError, build, load_export, load_observations, prepare_second_degree
 
 
 def meta_rows(*names):
@@ -69,6 +69,26 @@ class GraphTests(unittest.TestCase):
             build("me", set(), set(), [], vault)
             self.assertFalse((vault / "People/alex.md").exists())
             self.assertTrue((vault / "People/personal.md").exists())
+
+    def test_second_degree_batch_excludes_observed_and_uses_recent_follow_order(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            archive = base / "export.zip"
+            following = meta_following_rows("alex", "bea", "casey")
+            for row, stamp in zip(following, [10, 30, 20]):
+                row["string_list_data"][0]["timestamp"] = stamp
+            with zipfile.ZipFile(archive, "w") as output:
+                output.writestr("connections/followers_and_following/followers_1.json", json.dumps(meta_rows("alex", "bea", "casey")))
+                output.writestr("connections/followers_and_following/following.json", json.dumps({"relationships_following": following}))
+            observed = base / "observations.json"
+            observed.write_text(json.dumps([{"account": "bea", "followers": [], "following": []}]))
+            task = base / "local-data" / "second-degree-task.md"
+            self.assertEqual(prepare_second_degree("me", archive, [observed], None, 2, task), ["casey", "alex"])
+            self.assertIn("@casey", task.read_text())
+            self.assertNotIn("@bea", task.read_text())
+            targets = base / "targets.txt"
+            targets.write_text("@alex\n")
+            self.assertEqual(prepare_second_degree("me", archive, [observed], targets, 2, task), ["alex"])
 
 
 if __name__ == "__main__":
