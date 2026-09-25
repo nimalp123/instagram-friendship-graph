@@ -374,7 +374,7 @@ def prepare_third_degree(root: str, export: Path, observation_paths: list[Path],
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = argparse.ArgumentParser(description="Build a local Obsidian friendship graph from Instagram data")
+    parser = argparse.ArgumentParser(description="Explore Instagram friends up to three degrees in a local Obsidian graph")
     sub = parser.add_subparsers(dest="command", required=True)
     build_parser = sub.add_parser("build", help="Build from your Meta JSON export")
     build_parser.add_argument("--account", required=True, help="Your Instagram username")

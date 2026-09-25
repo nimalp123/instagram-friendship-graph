@@ -1,7 +1,7 @@
 [project]
 name = "instagram-friendship-graph"
 version = "0.1.0"
-description = "Turn consented Instagram connection data into a private Obsidian friendship graph"
+description = "Explore Instagram friends up to three degrees and uncover hidden mutuals in Obsidian"
 requires-python = ">=3.10"
 
 [project.scripts]

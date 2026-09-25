@@ -1,6 +1,8 @@
 # Instagram Friendship Graph
 
-Explore your **observed reciprocal Instagram follows** as an Obsidian graph and a movable Canvas with first, second, and third degree circles. The code and fictional example are safe for a public repository. Your Instagram export, observations, and generated vault stay in `local-data/`, which Git ignores.
+**See your Instagram friendships take shape.** Explore friends one, two, and three connections away, trace the paths between them, and uncover mutuals hiding in plain sight.
+
+Here, a **friend** means a mutual follow: you follow someone and they follow you back. At later degrees, each connection likewise means both accounts follow each other. The project turns those observed connections into an Obsidian graph and a movable Canvas. The code and fictional example are safe for a public repository; your Instagram export, observations, and generated vault stay in ignored `local-data/`.
 
 ## Try it now
 
