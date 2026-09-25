@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="300" viewBox="0 0 1200 300" role="img" aria-labelledby="title desc">
+<title id="title">How a three degree friendship path works</title>
+<desc id="desc">Four anonymous accounts connected by reciprocal follow links, beginning with you.</desc>
+<defs><linearGradient id="background" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#102039"/><stop offset="1" stop-color="#0a1122"/></linearGradient></defs>
+<rect width="1200" height="300" rx="24" fill="url(#background)"/>
+<text x="42" y="61" fill="#f3f8ff" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="28">How far does your circle go?</text>
+<text x="43" y="91" fill="#9eb1ca" font-family="Arial,Helvetica,sans-serif" font-size="17">Each line means both accounts follow each other.</text>
+<line x1="155" y1="179" x2="1000" y2="179" stroke="#819aba" stroke-width="3" stroke-dasharray="10 11" opacity=".6"/>
+<circle cx="140" cy="179" r="30" fill="#f4fbff"/><circle cx="435" cy="179" r="25" fill="#59d9aa"/><circle cx="715" cy="179" r="21" fill="#6ccdf4"/><circle cx="1000" cy="179" r="18" fill="#ba9bfd"/>
+<text x="123" y="186" fill="#0c1c32" font-family="Arial,Helvetica,sans-serif" font-weight="700" font-size="16">YOU</text>
+<text x="98" y="249" fill="#e7f0fa" font-family="Arial,Helvetica,sans-serif" font-size="17">Your account</text>
+<text x="392" y="249" fill="#e7f0fa" font-family="Arial,Helvetica,sans-serif" font-size="17">1st degree</text>
+<text x="669" y="249" fill="#e7f0fa" font-family="Arial,Helvetica,sans-serif" font-size="17">2nd degree</text>
+<text x="952" y="249" fill="#e7f0fa" font-family="Arial,Helvetica,sans-serif" font-size="17">3rd degree</text>
+</svg>

@@ -1,10 +1,26 @@
 # Instagram Friendship Graph
 
-**See your Instagram friendships take shape.** Explore friends one, two, and three connections away, trace the paths between them, and uncover mutuals hiding in plain sight.
+**Map your 1st, 2nd, and 3rd degree friends and uncover hidden mutuals in Obsidian.**
 
-Here, a **friend** means a mutual follow: you follow someone and they follow you back. At later degrees, each connection likewise means both accounts follow each other. The project turns those observed connections into an Obsidian graph and a movable Canvas. The code and fictional example are safe for a public repository; your Instagram export, observations, and generated vault stay in ignored `local-data/`.
+Turn reciprocal Instagram follows into an Obsidian vault you can zoom, drag, and click through. Start with the people who follow you back, then follow their connections out to the second and third degree. Spot shared friends and paths between circles that are hard to see in Instagram's lists.
 
-## Try it now
+![An anonymized slice of my Instagram friendship graph, showing three circles of mutual follows](assets/graph-preview.svg)
+
+*A stylized slice of my real graph. Usernames are omitted because this repository is public.*
+
+**Friend = mutual follow.** You follow them, and they follow you back. Every later connection follows the same rule between those two accounts.
+
+| Circle | What it shows |
+| --- | --- |
+| **1st degree** | Your mutual follows. |
+| **2nd degree** | Their mutual follows, reached through one of your friends. |
+| **3rd degree** | One more reciprocal connection beyond that. |
+
+![A path from your account through first, second, and third degree friends](assets/connection-path.svg)
+
+The public repo contains the generator and a fictional demo. Your Instagram export, observations, and generated vault stay in ignored `local-data/`.
+
+## Try the demo
 
 Requires Python 3.10+ and [Obsidian](https://obsidian.md/). No Python packages or Instagram login are needed.
 
@@ -16,7 +32,7 @@ In Obsidian, choose **Open folder as vault** and select `local-data/demo-vault`.
 
 The demo has `you` at the center, Alex and Bea at degree 1, Casey at degree 2, and Drew at degree 3. Its usernames are fictional examples.
 
-## Build your own
+## Make your graph
 
 1. In Instagram, find **Accounts Center → Your information and permissions → Download your information**. Request your Instagram **followers and following** for **all time**, in **JSON** format. Meta places this feature in Accounts Center; labels may vary by account or app version. Keep the ZIP on your own machine.
 2. Put the ZIP in `local-data/`, for example `local-data/instagram-export.zip`.
@@ -30,7 +46,7 @@ The result is `local-data/vault/`. Open that folder in Obsidian. The importer re
 
 Your export tells us which accounts **you** follow and which follow **you**. Their intersection gives degree 1. It does **not** reveal who your friends follow, so it cannot establish degrees 2 and 3 on its own.
 
-## Add second and third degree
+## Grow the second and third degree
 
 Prepare a private collection task for your logged-in Grokbot:
 
